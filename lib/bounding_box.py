@@ -139,7 +139,19 @@ thirty_ = [UpperBound(point, img),
 
 
 img1.polygon(thirty_, fill=None, outline="green")
-
+print("Thirty: ", thirty_)
+#Getting the top left corner of Rect
+topLeft = [min(thirty_[9][0],thirty_[-2][0],thirty_[-1][0]),min(thirty_[0][1],thirty_[-2][1],thirty_[-1][1])]
+bottomLeft = [min(thirty_[9][0],thirty_[8][0],thirty_[7][0]), max(thirty_[6][1],thirty_[8][1],thirty_[7][1])]
+topRight = [max(thirty_[3][0],thirty_[1][0],thirty_[2][0]) ,min(thirty_[0][1],thirty_[1][1],thirty_[2][1])]
+bottomRight = [max(thirty_[3][0],thirty_[5][0],thirty_[4][0]), max(thirty_[6][1],thirty_[4][1],thirty_[5][1])]
+topLeft[0] = bottomLeft[0] = min(topLeft[0],bottomLeft[0])
+topLeft[1] = topRight[1] = min(topLeft[1],topRight[1])
+bottomLeft[1] = bottomRight[1] = max(bottomLeft[1], bottomRight[1])
+topRight[0] = bottomRight[0] = max(topRight[0],bottomRight[0])
+rectBhai = [tuple(topLeft), tuple(topRight), tuple(bottomRight), tuple(bottomLeft)]
+print("Rect: ", rectBhai)
+img1.polygon(rectBhai, fill = None, outline = 'red')
 print (RegionalIntensity(point, img))
 r, g, b = img.getpixel((126, 346))
 print ("bright intensity:", intensity(r, g, b))
@@ -148,3 +160,5 @@ print ("mid intensity:", intensity(r, g, b))
 r, g, b = img.getpixel((185, 279))
 print ("border:", intensity(r, g, b))
 img.show()
+
+
