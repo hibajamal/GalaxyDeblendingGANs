@@ -4,11 +4,9 @@ import matplotlib
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImagePath
 import math
+import xlsxwriter
 import sys
-
-img = Image.open(str(sys.argv[-1]))
-img = img.convert('RGB')
-img_array = img.load()
+import os
 
 intensity = lambda r, g, b: (r+g+b)/3
 THRESHOLD = 37
@@ -27,21 +25,22 @@ def BrightSpot():
 def THRESHBlock(point, img):
     x, y = 10, 10
     # check if it goes out of range
-    if point[0] - x < 0:
+    if point[0] - x <= 0:
         x += point[0] - x
-    if point[0] + x > img.size[0]:
+    if point[0] + x >= img.size[0]:
         x -= (point[0] + x) - (img.size[0] - 1)
-    if point[1] - y < 0:
+    if point[1] - y <= 0:
         y += point[1] - y
-    if point[1] + x > img.size[1]:
+    if point[1] + y >= img.size[1]:
         y -= (point[1] + y) - (img.size[1] - 1)
     # start checking from new block
     new_point = (point[0]-x//2, point[1]+y//2)
     for i in range(math.ceil(new_point[0]), math.ceil(new_point[0]+x)):
         for j in range(math.ceil(new_point[1]), math.ceil(new_point[1]+y)):
-            R, B, G = img.getpixel((i, j))
-            if intensity(R, G, B) > THRESHOLD:
-                return False
+            if i < img.size[0] and j < img.size[1]:
+                R, B, G = img.getpixel((i, j))
+                if intensity(R, G, B) > THRESHOLD:
+                    return False
     return True
 
 def RegionalIntensity(point, img, k=9):
@@ -81,8 +80,6 @@ def LeftBound(point, img):
 
 def PolyBound(point, img, angle):
     m = math.tan(angle*(math.pi/180))
-    print ("slope:", m)
-    print ()
     y = point[1]
     x = point[0]
     INTENSITY_CMP = [RegionalIntensity(point, img), point]
@@ -100,65 +97,72 @@ def PolyBound(point, img, angle):
             y -= (-1)*m
             x = point[0] - i
         region = RegionalIntensity((x, y), img, 10)
-        print (INTENSITY_CMP, ",", abs(INTENSITY_CMP[0] - region))
         if INTENSITY_CMP[0] - region > 50:
             return INTENSITY_CMP[1]
         INTENSITY_CMP[1] = (x, y)
         INTENSITY_CMP[0] = region
-        print (INTENSITY_CMP)
         if THRESHBlock((x, y), img):
             return x, y
     return 0, 0
 
-# point = BrightSpot()
-point = (212, 212)
-print ("centre:", point)
-# P1 = (LeftBound(point, img)[0], UpperBound(point, img)[1])
-# P2 = (RightBound(point, img)[0], LowerBound(point, img)[1])
+directory = 'images_training_rev1'
+workbook = xlsxwriter.Workbook('labels.xlsx')
+worksheet = workbook.add_worksheet()
+cell_format = workbook.add_format()
+cell_format.set_bold()
+cell_format = workbook.add_format({'bold': True})
+row = 0
+worksheet.write(row, 0, 'Name', cell_format)
+worksheet.write(row, 1, 'x1', cell_format)
+worksheet.write(row, 2, 'y1', cell_format)
+worksheet.write(row, 3, 'x2', cell_format)
+worksheet.write(row, 4, 'y2', cell_format)
 
-#print (point, point2)
-img1 = ImageDraw.Draw(img)
+for filename in os.listdir(directory):
+    img = Image.open(directory+'/'+filename)
+    img = img.convert('RGB')
+    img_array = img.load()
 
-#img1.rectangle([P1, P2], fill=None, outline="green")
-'''lst = [LeftBound(point, img), PolyBound_x_270_to_0(point, img, (7*math.pi)/4), UpperBound(point, img), PolyBound_x_0_to_90(point, img, math.pi/4),
-       RightBound(point, img), PolyBound_x_90_to_180(point, img, (3*math.pi)/4), LowerBound(point, img),
-       PolyBound_x_180_to_270(point, img, (5*math.pi)/4)]
-'''
-thirty_ = [UpperBound(point, img),
-           PolyBound(point, img, 60),
-           PolyBound(point, img, 30),
-           RightBound(point, img),
-           PolyBound(point, img, 90+60),
-           PolyBound(point, img, 90+30),
-           LowerBound(point, img),
-           PolyBound(point, img, 180+60),
-           PolyBound(point, img, 180+30),
-           LeftBound(point, img),
-           PolyBound(point, img, 270+60),
-           PolyBound(point, img, 270+30)]
-
-
-img1.polygon(thirty_, fill=None, outline="green")
-print("Thirty: ", thirty_)
-#Getting the top left corner of Rect
-topLeft = [min(thirty_[9][0],thirty_[-2][0],thirty_[-1][0]),min(thirty_[0][1],thirty_[-2][1],thirty_[-1][1])]
-bottomLeft = [min(thirty_[9][0],thirty_[8][0],thirty_[7][0]), max(thirty_[6][1],thirty_[8][1],thirty_[7][1])]
-topRight = [max(thirty_[3][0],thirty_[1][0],thirty_[2][0]) ,min(thirty_[0][1],thirty_[1][1],thirty_[2][1])]
-bottomRight = [max(thirty_[3][0],thirty_[5][0],thirty_[4][0]), max(thirty_[6][1],thirty_[4][1],thirty_[5][1])]
-topLeft[0] = bottomLeft[0] = min(topLeft[0],bottomLeft[0])
-topLeft[1] = topRight[1] = min(topLeft[1],topRight[1])
-bottomLeft[1] = bottomRight[1] = max(bottomLeft[1], bottomRight[1])
-topRight[0] = bottomRight[0] = max(topRight[0],bottomRight[0])
-rectBhai = [tuple(topLeft), tuple(topRight), tuple(bottomRight), tuple(bottomLeft)]
-print("Rect: ", rectBhai)
-img1.polygon(rectBhai, fill = None, outline = 'red')
-print (RegionalIntensity(point, img))
-r, g, b = img.getpixel((126, 346))
-print ("bright intensity:", intensity(r, g, b))
-r, g, b = img.getpixel((156, 288))
-print ("mid intensity:", intensity(r, g, b))
-r, g, b = img.getpixel((185, 279))
-print ("border:", intensity(r, g, b))
-img.show()
+    img1 = ImageDraw.Draw(img)
+    point = (212, 212)
+    thirty_ = [UpperBound(point, img),
+               PolyBound(point, img, 60),
+               PolyBound(point, img, 30),
+               RightBound(point, img),
+               PolyBound(point, img, 90+60),
+               PolyBound(point, img, 90+30),
+               LowerBound(point, img),
+               PolyBound(point, img, 180+60),
+               PolyBound(point, img, 180+30),
+               LeftBound(point, img),
+               PolyBound(point, img, 270+60),
+               PolyBound(point, img, 270+30)]
 
 
+    img1.polygon(thirty_, fill=None, outline="green")
+    #Getting the top left corner of Rect
+    topLeft = [min(thirty_[9][0], thirty_[-2][0], thirty_[-1][0]), min(thirty_[0][1],
+                    thirty_[-2][1], thirty_[-1][1])]
+    bottomLeft = [min(thirty_[9][0], thirty_[8][0], thirty_[7][0]), max(thirty_[6][1],
+                    thirty_[8][1], thirty_[7][1])]
+    topRight = [max(thirty_[3][0], thirty_[1][0], thirty_[2][0]), min(thirty_[0][1],
+                    thirty_[1][1], thirty_[2][1])]
+    bottomRight = [max(thirty_[3][0], thirty_[5][0], thirty_[4][0]), max(thirty_[6][1],
+                    thirty_[4][1], thirty_[5][1])]
+    topLeft[0] = bottomLeft[0] = min(topLeft[0], bottomLeft[0])
+    topLeft[1] = topRight[1] = min(topLeft[1], topRight[1])
+    bottomLeft[1] = bottomRight[1] = max(bottomLeft[1], bottomRight[1])
+    topRight[0] = bottomRight[0] = max(topRight[0], bottomRight[0])
+    b_rect = [tuple(topLeft), tuple(topRight), tuple(bottomRight), tuple(bottomLeft)]
+    print("Rect: ", b_rect, "done with:", filename)
+    img1.polygon(b_rect, fill = None, outline = 'red')
+
+    #check bounds
+    if abs(topLeft[0] - topRight[0]) < 200 and abs(bottomLeft[0] - bottomRight[0] < 200) and abs(topLeft[1] - bottomLeft[1] < 200 and abs(topRight[1] - topLeft[1]) < 200):
+        row += 1
+        worksheet.write(row, 0, filename)
+        worksheet.write(row, 1, b_rect[0][0])
+        worksheet.write(row, 2, b_rect[0][1])
+        worksheet.write(row, 3, b_rect[2][0])
+        worksheet.write(row, 4, b_rect[2][1])
+workbook.close()
